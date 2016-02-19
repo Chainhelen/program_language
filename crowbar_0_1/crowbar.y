@@ -9,6 +9,7 @@
     ArgumentList        *argument_list;
     Expression          *expression;
     Statement           *statement;
+    Statement           *statement_list;
     Block               *block;
     Elsif               *elsif;
     IdentifierList      *identifier_list;
@@ -20,8 +21,9 @@
 %token FUNCTION IF ELSE ELSIF WHILE FOR RETURN_T BREAK CONTINUE NULL_T
         LP RP LC RC SEMICOLON COMMA ASSIGN LOGICAL_AND LOGICAL_OR
         EQ NE GT GE LT LE ADD SUB MUL DIV MOD TRUE_T FALSE_T GLOBAL_T
-%token  <parameter_list>  parameter_list
-        <expression>    expression expression_opt
+%type   <parameter_list>  parameter_list
+%type   <argument_list>   argument_list
+%type   <expression>    expression expression_opt
         logical_and_expression logical_or_expression
         equality_expression     relational_expression
         additive_expression     multiplicative_expression
@@ -31,7 +33,8 @@
         return_statement break_statement  continue_statement
 %type   <statement>  statement_list
 %type   <block> block
-%type   <elsif> elsif elsif_lsit
+%type   <elsif> elsif elsif_list
+%type   <identifier_list> identifier_list
 %%
 translation_unit
         : definition_or_statement
@@ -42,6 +45,7 @@ definition_or_statement
         | statement
         {
             CRB_Interpreter *inter = crb_get_current_interpreter();
+
             inter->statement_list
                 = crb_chain_statement_list(inter->statement_list, $1);
         }
@@ -113,24 +117,28 @@ equality_expression
         {
             $$ = crb_create_binary_expression(EQ_EXPRESSION, $1, $3);
         }
-        | equality_expression
+        | equality_expression NE relation_expression
         { 
             $$ = crb_create_binary_expression(NE_EXPRESSION, $1, $3);
         }
         ;
 relation_expression
         : additive_expression
-        | relation_expression GT adtive_expression
+        | relation_expression GT additive_expression
         {
             $$ = crb_create_binary_expression(GT_EXPRESSION, $1, $3);
         }
-        | relation_expression GE addtive_expression
+        | relation_expression GE additive_expression
         {
             $$ = crb_create_binary_expression(GT_EXPRESSION, $1, $3);
         }
-        | relation_expression LT addtive_expression
+        | relation_expression LT additive_expression
         {
             $$ = crb_expression_binary_expression(LT_EXPRESSION, $1, $3);
+        }
+        | relation_expression LE additive_expression
+        {
+            $$ = crb_expression_binary_expression(LE_EXPRESSION, $1, $3);
         }
         ;
 addtive_expression
@@ -190,6 +198,14 @@ primary_expression
         {
             $$ = crb_create_boolean_expression(CRB_TRUE);
         }
+        | FALSE_T
+        {
+            $$ = crb_create_boolean_expression(CRB_FALSE);
+        }
+        | NULL_T
+        {
+            $$ = crb_create_null_expression();
+        }
         ;
 statement
         : expresion SEMICOLON
@@ -227,6 +243,76 @@ if_statement
         }
         | IF LP epxresion RP block ELSE block
         {
-            $$ = crb_create_if_statement($3, $5);
+            $$ = crb_create_if_statement($3, $5, NULL ,$7);
         }
+        | IF LP expression RP block elsif_list
+        {
+            $$ = crb_create_if_statemetn($3, $5, $6, NULL);
         }
+        | IF LP expression RP block elsif_list ELS block
+        {
+            $$ = crb_create_if_statement($3, $5, $6, $8);
+        }
+        ;
+elsif_list
+        : elsif
+        | elsif_list elsif
+        {
+            $$ = crb_chain_elsif_list($1, $2);
+        }
+        ;
+elsif
+        : ELSIF LP expression RP block
+        {
+            $$ = crb_create_elsif($3, $5);
+        }
+        ;
+while_statement
+        : WHILE LP expression RP block
+        {
+            $$ = crb_create_while_statement($3, $5);
+        }
+        ;
+for_statement
+        : FOR LP expression_opt SEMICOLON expression_opt SEMICOLON
+            expression_opt RP block
+        {
+            $$ = crb_create_for_statement($3, $5, $7, $9);
+        }
+        ;
+expression_opt
+        : /* empty */
+        {
+            $$ = NULL;
+        }
+        | expresion
+        ;
+return_statement
+        : RETUNR_T expresison_opt SEMICOLON
+        {
+            $$ = crb_create_return_statement($2);
+        }
+        ;
+break_statement
+        : BREAK SEMICOLON
+        {
+            $$ = crb_create_break_statement();
+        }
+        ;
+continue_statement
+        : CONTINUE SEMICOLON
+        {
+            $$ = crb_create_continue_statement();
+        }
+        ;
+block 
+        : LC statement_list RC
+        {
+            $$ = crb_create_block($2);
+        }
+        | LC RC
+        {
+            $$ = crb_create_block(NULL);
+        }
+        ;
+%%
