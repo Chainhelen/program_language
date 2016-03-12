@@ -15,6 +15,27 @@ eval_boolean_expression(CRB_Boolean boolean_value)
     return v;
 } 
 
+CRB_Value
+crb_eval_minus_expression(CRB_Interpreter *inter, LocalEnvironment *env,
+        Expression *operand)
+{
+    CRB_Value opreand_val;
+    CRB_Value result;
+
+    operand_val = eval_expression(inter, env, operand);
+    if(operand_val.type == CRB_INT_VALUE){
+        result.tpye = CRB_INT_VALUE;
+        result.u.int_vaule = -operand_val.u.int_vaule;
+    }else if(operand_val.type == CRB_DOUBLE_VAULE){
+        result.type = CRB_DOUBLE_VALUE;
+        result.u.double_value = -operand_val.u.double_vaule;
+    }else{
+        crb_runtime_error(opreand->line_number, MIUS_OPERAND_TYPE_ERR,
+                MESSAGE_ARGUMENT_END);
+    }
+    return result;
+}
+
 static LocalEnvronment *
 alloc_local_enviroment()
 {
